@@ -145,4 +145,19 @@ mydb=> select 4*:x; --使用:variable使用變數
         8
 (1 row)
 ```
+- 預設在psql下null是呈現空白, 這會和真的空白一樣。可以用以下設定將null標示出來, 可以和空白區分
+```sql
+mydb=> select null as s;
+ s 
+---
+ 
+(1 row)
 
+mydb=> \pset null '<null>'
+Null display is "<null>".
+mydb=> select null as s;
+   s
+--------
+ <null>
+(1 row)
+```
