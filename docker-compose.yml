@@ -15,6 +15,7 @@ services:
       - 5432      
     volumes:
       - postgresql_data:/bitnami/postgresql
+      - C:\myDocker\postgresql\pgsVol:/demo
     environment:
       - POSTGRESQL_POSTGRES_PASSWORD=P@ssw0rd!
       - POSTGRESQL_USERNAME=pguser
@@ -37,6 +38,7 @@ services:
       PGADMIN_CONFIG_MAX_SESSION_IDLE_TIME: 60
     volumes:
       - pgadmin4_data:/var/lib/pgadmin
+      - C:\myDocker\postgresql\pgAdmVol:/home/demo
     ports:
       - "5050:80"
     # extra_hosts:

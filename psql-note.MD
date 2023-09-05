@@ -161,3 +161,21 @@ mydb=> select null as s;
  <null>
 (1 row)
 ```
+### 建立 pagila 範例資料庫 ###
+- https://github.com/devrimgunduz/pagila
+- 建立基本步驟
+```bash
+# 進到psql
+mydb=> create database pagila;
+CREATE DATABASE
+mydb=> \q
+
+# 跳出到bash, 並移到sql檔所在目錄
+# 建立schema
+$ cat pagila-schema.sql | psql -U pguser -d pagila
+Password for user pguser:
+
+# 建立data
+$ cat pagila-data.sql | psql -U pguser -d pagila
+Password for user pguser:
+```
