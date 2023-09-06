@@ -136,7 +136,7 @@ mydb=> SELECT real '1.23';
 ```
 
 ```sql
--- 'string'::type
+-- 'string'::type, postgresql原始用法
 mydb=> SELECT '1.23'::real;
 ```
 
@@ -148,7 +148,7 @@ mydb=> SELECT '1.23'::real;
 ```
 
 ```sql
--- CAST('string' AS type)
+-- CAST('string' AS type), SQL標準用法
 mydb=> SELECT cast('1.23' AS real);
 ```
 
@@ -357,6 +357,53 @@ SELECT array_append(ARRAY[1,2], 3);
 -- 串接2個
 SELECT array_cat(ARRAY[1,2], ARRAY[3,4]);
 ```
+- 將查詢結果轉為Array
+```sql
+pagila=> SELECT ARRAY(SELECT first_name FROM actor LIMIT 3);
+```
+```
+          array
+--------------------------
+ {PENELOPE,NICK,JENNIFER}
+(1 row)
+```
+## ROW的組合 ##
+- ROW是以`( )`呈現, 與陣列`[ ]`不同
+```SQL
+SELECT ROW(1,2.5,'this is a test');
+```
+```
+           row
+--------------------------
+ (1,2.5,"this is a test")
+(1 row)
+```
+- 查詢欄位組合的回傳
+```sql
+pagila=> SELECT ROW(actor.*) FROM actor;
+```
+```
+                        row
+----------------------------------------------------
+ (1,PENELOPE,GUINESS,"2022-02-15 09:34:33+00")
+ (2,NICK,WAHLBERG,"2022-02-15 09:34:33+00")
+ (4,JENNIFER,DAVIS,"2022-02-15 09:34:33+00")
+ (5,JOHNNY,LOLLOBRIGIDA,"2022-02-15 09:34:33+00")
+ ...
+```
+- `FUNCTION`中傳入參數若為**Table**或**Type**, 可以`ROW()`來替代傳入
+```sql
+CREATE TABLE X(A,B,C);
+CREATE TYPE Y AS (D,E,F);
+-- 指定傳入為X table或是Y type
+CREATE FUNCTION MYFUN(X) ....;
+CREATE FUNCTION MYFUN(Y) ....;
+
+-- 以ROW帶入相符個數及型別, 即可當成相應型別參數傳入
+-- 若FUNCTION有多型, 要用::轉型到正確型別才能正確呼叫
+SELECT MYFUN(ROW(a,b,c)::X);
+SELECT MYFUN(ROW(d,e,f)::Y);
+```
 
 ## 用欄位組合於查詢中
 
@@ -559,3 +606,73 @@ SELECT salary, sum(salary) OVER (ORDER BY salary) FROM empsalary;
 ```
 
 - **WINDOW 函式只允許在`SELECT`欄位及`ORDER BY`中使用, 不可用於`GROUP BY`、`HAVING`及`WHERE`中**
+
+## Collation 定序 ##
+- 定序系統有2類provider, 
+  - `libc`: 作業系統C library
+  - `icu`: ICU library, 目前container中用的是這一類
+- 可用於`WHERE`及`ORDER BY`以產生想要的或轉換不同的資料排序效果
+```sql
+-- "C"是內定定序, 還有"C.UTF-8"也是內定
+SELECT a, b, c FROM tbl WHERE ... ORDER BY a COLLATE "C";
+SELECT * FROM tbl WHERE a > 'foo' COLLATE "C";
+SELECT * FROM tbl WHERE a COLLATE "C" > 'foo';
+```
+- 若沒有顯性定序或隱性定序, 則比對(如`>`、`<`)或是`ORDER BY`會出錯
+```SQL
+CREATE TABLE test1 (
+    a text COLLATE "de-DE-x-icu",
+    b text COLLATE "es-ES-x-icu",
+    ...
+);
+
+-- OK,隱性定序, 'foo'會變成a的相同定序
+SELECT a < 'foo' FROM test1;
+
+-- OK,顯示定序, 'foo'及a都會變成fr-FR-x-icu定序
+SELECT a < ('foo' COLLATE "fr-FR-x-icu") FROM test1;
+```
+```sql
+-- FAIL,未指定定序, 衝突的定序, 會出錯
+pagila=> SELECT a < b FROM test1;
+```
+```
+ERROR:  could not determine which collation to use for string comparison
+HINT:  Use the COLLATE clause to set the collation explicitly.
+```
+```sql
+-- OK,指定顯性定序才能成功, 只要其一指定顯性定序, 全都改成其指定的定序做比對
+SELECT a < b COLLATE "de-DE-x-icu" FROM test1;
+SELECT a COLLATE "de-DE-x-icu" < b FROM test1;
+```
+```sql
+-- FAIL,但指定不同的顯性定序也不可以, 即使2個定序排序規則是相同的
+pagila=> SELECT a COLLATE "C" < b COLLATE "POSIX" FROM test1;
+```
+```
+ERROR:  collation mismatch between explicit collations "C" and "POSIX"
+LINE 1: SELECT a COLLATE "C" < b COLLATE "POSIX" FROM test1;
+                                 ^
+```
+- `SELECT`欄位在串接(`||`)不會在乎定序, 但在`ORDER BY`會在乎定序
+```SQL
+-- OK,SELECT中||不在乎, 不同定序可以組在一起
+SELECT a || b FROM test1;
+
+-- OK,用||串接'foo'和a會變為a的定序
+SELECT * FROM test1 ORDER BY a || 'foo';
+```
+```SQL
+-- FAIL,雖在SELECT中用||不在乎定序, 但在ORDER BY會在乎定序, 故不能用||直接串接
+pagila=> SELECT * FROM test1 ORDER BY a || b;
+```
+```
+ERROR:  collation mismatch between implicit collations "de-DE-x-icu" and "es-ES-x-icu"
+LINE 1: SELECT * FROM test1 ORDER BY a || b;
+                                          ^
+HINT:  You can choose the collation by applying the COLLATE clause to one or both expressions.
+```
+```sql
+-- OK,得先指定顯性定序, 再串接, 再做ORDER BY才不會出錯
+SELECT * FROM test1 ORDER BY a || b COLLATE "fr-FR-x-icu";
+```
