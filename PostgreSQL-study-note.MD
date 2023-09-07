@@ -194,6 +194,27 @@ SELECT 999 w1,c1 w2,c2 w3 FROM demo WHERE c1=$1
 $BODY$;
 ```
 
+### 函式參數的使用 ###
+- 傳入參數的宣告
+```SQL
+CREATE FUNCTION myfunc(a text,b text, b boolean DEFAULT false)  RETURNS ...
+```
+- 依位置傳入
+```SQL
+SELECT myfunc('aaa','bbb',true);
+SELECT myfunc('AAA','BBB');
+```
+- 以名稱指定。在**Aggregate**彙總函式不可用, 但在**Window**視窗函式可以用
+```sql
+SELECT myfunc(a=>'aaa',b=>'bbb');
+-- 舊式相容寫法
+SELECT myfunc(a:='aaa',b:='bbb');
+```
+- 混合用法。在**Aggregate**彙總函式不可用, 但在**Window**視窗函式可以用
+```sql
+SELECT myfunc('aaa','222',b=>true);
+```
+
 ## 陣列的使用
 
 - 建立 table 時可以宣告欄位為 Array 型態, 也可加入索引數值, 但 PostgreSQL 不會限制 Array 內容個數
@@ -676,3 +697,23 @@ HINT:  You can choose the collation by applying the COLLATE clause to one or bot
 -- OK,得先指定顯性定序, 再串接, 再做ORDER BY才不會出錯
 SELECT * FROM test1 ORDER BY a || b COLLATE "fr-FR-x-icu";
 ```
+## 運算式評估 ##
+- 條件比對的評估沒有特定方向和順序, 非由左而右, 
+- 評估時若其中一部份條件已可達成成立, 其他的部份可能不會再做評估, 這會由最佳化查詢引撉進行評估
+  - 在`WHERE`及`HAVING`中進行條件評估更需要注意此一情況
+```sql
+-- 因為 or true已成立, somefunc()可能不會進行執行評估
+SELECT somefunc() OR true;
+```
+- 若要強制進行有序評估, 可以使用`CASE-WHEN-ELSE-END`
+  - 但這會失去最佳化查詢的處理而影響效能, 所以只在必要時使用。
+  - 承上, **可改用`IF-THEN-ELSE`判斷, 即可同時達到需要的評估順序又有最佳化查詢評估效果**
+  - 在`SELECT`和`HAVING`中用`CASE-WHEN`, 應避免使用**Aggregate**彙總函式, 因為彙總函式的評估是更早於`CASE-WHEN`, 所以有可能造成**division-by-zero**的異常情況
+```SQL
+-- 如下有division-by-zero的可能性
+SELECT CASE WHEN min(employees) > 0
+          THEN avg(expenses / employees)
+      END
+  FROM departments;
+```
+
