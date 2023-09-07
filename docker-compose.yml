@@ -8,7 +8,7 @@ services:
     container_name: my_postgresql
     image: bitnami/postgresql
     networks:
-      - app-tier
+      - app_tier
     ports:
       - '5432:5432'
     expose:
@@ -30,7 +30,6 @@ services:
   pgadmin4:
     container_name: my_pgadmin4
     image: dpage/pgadmin4
-    # restart: "always"
     environment:
       PGADMIN_DEFAULT_EMAIL: "YOUR@gmail.com"
       PGADMIN_DEFAULT_PASSWORD: "PASSWORD"
@@ -40,12 +39,10 @@ services:
       - C:\myDocker\postgresql\pgAdmVol:/var/lib/pgadmin
     ports:
       - "5050:80"
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
     depends_on:
       - postgresql
     networks:
-      - app-tier
+      - app_tier
     healthcheck:
       interval: 5s
       timeout: 1s
@@ -57,6 +54,10 @@ volumes:
     driver: local
 
 networks:
-  app-tier:
+  app_tier:
     driver: bridge
     name: my_postgres_net
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+          gateway: 172.21.0.1
