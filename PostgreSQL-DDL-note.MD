@@ -50,7 +50,7 @@ CREATE TABLE people (
 - 可參照其他欄位或其他記錄值, 對此欄位加以約束
 - 有幾種條件約束
 ```sql
--- CHECK
+-- CHECK---------------------------------------------
 CREATE TABLE products (
     product_no integer,
     name text,
@@ -59,28 +59,30 @@ CREATE TABLE products (
     CHECK (price > discounted_price)                       --table constraint
 );
 
--- NOT NULL
+-- NOT NULL----------------------------------------------
 CREATE TABLE products (
     product_no integer NOT NULL,
     name text NOT NULL,
     price numeric NOT NULL CHECK (price > 0)
 );
 
--- UNIQUE。2筆NULL不被視為相等, 故UNIQUE不會將多筆NULL記錄視為違反約束
+-- UNIQUE-----------------------------------------------
+-- 1) 2筆NULL不被視為相等, 故UNIQUE不會將多筆NULL記錄視為違反約束
 CREATE TABLE example (
     a integer,
     b integer,
     c integer,
     UNIQUE (a, c)
 );
--- 可以用NULLS NOT DISTINCT改變預設規則
+-- 2) 可以用NULLS NOT DISTINCT改變預設規則
 CREATE TABLE products (
     product_no integer UNIQUE NULLS NOT DISTINCT,
     name text,
     price numeric
 );
 
--- PK。以下2者意義相等,PRIMARY KEY = UNIQUE NOT NULL
+-- PK------------------------------------------------
+-- 1) 以下2者意義相等,PRIMARY KEY = UNIQUE NOT NULL
 CREATE TABLE products (
     product_no integer UNIQUE NOT NULL,
     name text,
@@ -92,7 +94,87 @@ CREATE TABLE products (
     price numeric
 );
 
--- FK
+-- FK------------------------------------------------
+-- 1) 指定table及column名
+CREATE TABLE orders (
+    order_id integer PRIMARY KEY,
+    product_no integer REFERENCES products (product_no),
+    quantity integer
+);
+-- 2) 指定table名, column為同名可忽略
+CREATE TABLE orders (
+    order_id integer PRIMARY KEY,
+    product_no integer REFERENCES products,
+    quantity integer
+);
+-- 3) 指定主從column為不同名column
+CREATE TABLE t1 (
+  a integer PRIMARY KEY,
+  b integer,
+  c integer,
+  FOREIGN KEY (b, c) REFERENCES other_table (c1, c2)
+);
+-- 4) 指定主table刪除參照記錄時, 從屬記錄處理方式。
+--    還有On UPDATE、NO ACTION、SET NULL、SET DEFAUL等
+CREATE TABLE order_items (
+    product_no integer REFERENCES products ON DELETE RESTRICT, --從屬記錄不刪
+    order_id integer REFERENCES orders ON DELETE CASCADE, --從屬記錄一起刪
+    quantity integer,
+    PRIMARY KEY (product_no, order_id)
+);
 
--- EXCLUSION
+-- EXCLUSION------------------------------------------
+-- 1) 針對table內任2筆記錄做指定的比對而做剔除
+CREATE TABLE circles (
+    c circle,
+    EXCLUDE USING gist (c WITH &&)
+);
+```
+
+## 系統欄位 ##
+- 每個table內建的欄位: `tableoid、xmin、cmin、xmax、cmax、ctid`
+- column命名不可與這些相同
+
+## 變動table ##
+- 增加欄位: 從**PostgreSQL 11**起, 增加欄位時若是有加入預設值, 並不會立即更新table中的所有記錄, 所以對很大的table也會很快。直到下次存取記錄時預設值才會生效, 例如`SELECT`時
+  - 新指定的預設值會呈現在所有記錄的新欄位(在`SQL Server`上則不會自動在新增欄位上呈現新的預設值)
+  - 但若新欄位的預設值是變動的, 如系統時間, 則必須要`UPDATE`才會呈現出來
+```SQL
+ALTER TABLE products ADD COLUMN description text CHECK (description <> '');
+```
+- 刪除欄位
+```SQL
+ALTER TABLE products DROP COLUMN description CASCADE; -- 若有FK關連, 可加上CASCADE做一併刪除
+```
+- 增加條件約束
+```SQL
+ALTER TABLE products ADD CHECK (name <> '');
+ALTER TABLE products ADD CONSTRAINT some_name UNIQUE (product_no);
+ALTER TABLE products ADD FOREIGN KEY (product_group_id) REFERENCES product_groups;
+-- NOT NULL是沒Constraint名稱, 所以是用異動做新增
+ALTER TABLE products ALTER COLUMN product_no SET NOT NULL;
+```
+- 刪除條件約束
+```sql
+-- 刪除要指定名稱, 必須要先查得名稱
+ALTER TABLE products DROP CONSTRAINT some_name;
+-- 針對NOT NULL也是要用異動做處理(再變為NULL)
+ALTER TABLE products ALTER COLUMN product_no DROP NOT NULL;
+```
+- 改變欄位預設值
+```SQL
+ALTER TABLE products ALTER COLUMN price SET DEFAULT 7.77;
+```
+- 改變欄位型態
+```SQL
+-- 必須是要可以轉換的型別
+ALTER TABLE products ALTER COLUMN price TYPE numeric(10,2);
+```
+- 改欄位名稱
+```SQL
+ALTER TABLE products RENAME COLUMN product_no TO product_number;
+```
+- 改TABLE名稱
+```SQL
+ALTER TABLE products RENAME TO items;
 ```
