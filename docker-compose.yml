@@ -8,7 +8,7 @@ services:
     container_name: my_postgresql
     image: bitnami/postgresql
     networks:
-      - app_tier
+      - app-tier
     ports:
       - '5432:5432'
     expose:
@@ -42,7 +42,7 @@ services:
     depends_on:
       - postgresql
     networks:
-      - app_tier
+      - app-tier
     healthcheck:
       interval: 5s
       timeout: 1s
@@ -54,7 +54,7 @@ volumes:
     driver: local
 
 networks:
-  app_tier:
+  app-tier:
     driver: bridge
     name: my_postgres_net
     ipam:
