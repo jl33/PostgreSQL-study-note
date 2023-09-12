@@ -178,3 +178,85 @@ ALTER TABLE products RENAME COLUMN product_no TO product_number;
 ```SQL
 ALTER TABLE products RENAME TO items;
 ```
+
+## Privilege 授權 ##
+- 建立者預設就是該物件的**owner**
+- 非**superuser**的一般**role**必須要是該物件的現有**owner**, 又是新**owner role**的成員之一, 才能更改物件權限
+```sql
+ALTER TABLE table_name OWNER TO new_owner;
+```
+```sql
+-- 授與accounts的UPDATE權限給joe
+GRANT UPDATE ON accounts TO joe;
+```
+- `PUBLIC`可以指包含所有**role**的意思
+- `ALL`可是指包含物件的所有權限種類
+```sql
+-- 以下表示取消所有role在accounts的所有權限設定
+REVOKE ALL ON accounts FROM PUBLIC;
+```
+- `WITH GRANT OPTION`可授與給**A**可授權其他人有**xxx**的權限
+  - 若其後`WITH GRANT OPTION`權限被取消, 則所有**A**因此獲得的權限, 以及A再授與其他人的權限, 都將被取消
+  - `WITH GRANT OPTION`不可授與給`PUBLIC`角色
+- 現有**owner**可以`REVOKE`自己的權限, 例如變成唯讀不可異動, 但他還是可以再次把自己`GRANT`成有可異動權限
+- 授權種類
+  - `SELECT`: r
+    1. 可指定所有欄位或特定欄位
+    1. 同時授與`COPY TO`權限
+    1. 在`UPDATE、DELETE、MERGE`的使用欄位也必須給與此權限
+    1. 同時授與`currval`函式的使用
+  - `INSERT`: a
+    1. 可指定只可寫入特定欄位, 未指定的欄位因為不能寫在`insert`語法中, 則會以預設值寫入
+    1. 同時授與`COPY FROM`權限
+  - `UPDATE`: w
+    1. 可指定只可更新特定欄位
+    1. 更新的欄位或參照的欄位, 要一併給與`SELECT`權限
+    1. `SELECT ... FOR UPDATE`及`SELECT ... FOR SHARE`則需要給`UPDATE`權限
+    1. 同時授與`nextval、setval`函式的使用
+  - `DELETE`: d
+    1. 給與刪除記錄權限, 要一併給與`SELECT`權限
+  - `TRUNCATE`: D
+    1. 給與清空table權限
+  - `REFERENCES`: x
+    1. 給與建立**FK** index, 參照其他table或其table中的欄位的權限
+  - `TRIGGER`: t
+    1. 給與建立trigger的權限
+  - `CREATE`: C
+    1. 給與建立DB、schema等的權限
+    1. revoke此權限並不會異動到現有物件
+  - `CONNECT`: c
+    1. 授權連線到DB的權限
+    1. 預設授與給`PUBLIC`
+  - `TEMPRARY`: T
+    1. 給與建立暫存table的權限
+    1. 預設授與給`PUBLIC`
+  - `EXECUTE`: X
+    1. 給與執行函式及預存的權限
+    1. 僅可針對函式及預存使用
+    1. 預設授與給`PUBLIC`
+  - `USAGE`: U
+    1. 針對預存, 指定建立預存可用的語言。預設授與給`PUBLIC`
+    1. 針對`schema`, 指定在schema中可存取的物件, 同時允許可找尋(**look up**)的權限。revoke此權限後, **現存session**仍可能可以存取schema中的物件
+    1. 針對`sequences`, 則允許使用`currval、nextval`函式
+  - `SET`: s
+    1. 可在當下session中設定系統參數值
+  - `ALTER SYSTEM`: A
+    1. 可設定系統參數值
+- 以上各類型名稱後的單一字母為簡寫, 會顥示在`psql`的指令查詢結果中, 如下**Access privileges**欄位
+```bash
+pagila=> \l
+```
+```
+                                                 List of databases
+   Name    |  Owner   | Encoding |   Collate   |    Ctype    | ICU Locale | Locale Provider |   Access privileges
+-----------+----------+----------+-------------+-------------+------------+-----------------+-----------------------
+ mydb      | pguser   | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =Tc/pguser           +
+           |          |          |             |             |            |                 | pguser=CTc/pguser
+ pagila    | pguser   | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            |
+ postgres  | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            |
+ template0 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +
+           |          |          |             |             |            |                 | postgres=CTc/postgres
+ template1 | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +
+           |          |          |             |             |            |                 | postgres=CTc/postgres
+(5 rows)
+```
