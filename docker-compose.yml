@@ -17,10 +17,10 @@ services:
       - postgresql_data:/bitnami/postgresql
       - C:\myDocker\postgresql\pgsVol:/demo
     environment:
-      - POSTGRESQL_POSTGRES_PASSWORD=P@ssw0rd!
-      - POSTGRESQL_USERNAME=pguser
-      - POSTGRESQL_PASSWORD=password123
-      - POSTGRESQL_DATABASE=mydb
+      POSTGRESQL_POSTGRES_PASSWORD: "P@ssw0rd!"
+      POSTGRESQL_USERNAME: "pguser"
+      POSTGRESQL_PASSWORD: "password123"
+      POSTGRESQL_DATABASE: "mydb"
     healthcheck:
       interval: 5s
       timeout: 1s
