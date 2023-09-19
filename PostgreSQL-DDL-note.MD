@@ -343,6 +343,8 @@ INSERT 0 1
 mydb=# INSERT INTO passwd VALUES
 mydb-#   ('alice','xxx',2,1,'Alice','098-765-4321',null,'/home/alice','/bin/zsh');
 INSERT 0 1
+```
+```sql
 -- 啟用Row安全政策=========================================
 mydb=# ALTER TABLE passwd ENABLE ROW LEVEL SECURITY;
 ALTER TABLE
@@ -360,6 +362,8 @@ mydb(#     current_user = user_name AND
 mydb(#     shell IN ('/bin/bash','/bin/sh','/bin/dash','/bin/zsh','/bin/tcsh')
 mydb(#   );
 CREATE POLICY
+```
+```sql
 -- 授與相關權限=============================================
 mydb=# GRANT SELECT, INSERT, UPDATE, DELETE ON passwd TO admin;
 GRANT
@@ -373,6 +377,8 @@ mydb=# GRANT UPDATE
 mydb-#   (pwhash, real_name, home_phone, extra_info, shell)
 mydb-#   ON passwd TO public;
 GRANT
+```
+```sql
 -- 轉為admin role===========================================
 mydb=# set role admin;
 SET
@@ -436,4 +442,21 @@ SET
 mydb=# CREATE POLICY admin_local_only ON passwd AS RESTRICTIVE TO admin
     USING (pg_catalog.inet_client_addr() IS NULL);
 CREATE POLICY
+```
+- 進行**備份**時應該設定`row_security=off`關閉, 以免因而造成記錄缺漏
+
+## Schema ## 
+>https://www.postgresql.org/docs/current/ddl-schemas.html
+- **schema**無法建立巢狀
+- 目前在PostgreSQL中如下寫法的`database`只能是目前所在資料庫, 這裡只是為了符合** SQL Standard**
+```sql
+database.schema.table
+```
+- 若**schema**內已沒其他物件, 用以下方式刪除
+```sql
+DROP SCHEMA myschema;
+```
+- 若要刪除包含**schema**內含的物件, 用以下方式
+```sql
+DROP SCHEMA myschema CASCADE;
 ```
