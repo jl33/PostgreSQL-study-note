@@ -180,6 +180,7 @@ ALTER TABLE products RENAME TO items;
 ```
 
 ## Privilege 授權 ##
+>https://www.postgresql.org/docs/current/ddl-priv.html
 - 建立者預設就是該物件的**owner**
 - 非**superuser**的一般**role**必須要是該物件的現有**owner**, 又是新**owner role**的成員之一, 才能更改物件權限
 ```sql
@@ -263,6 +264,7 @@ pagila=> \l
 ```
 
 ## Row的安全政策 ##
+>https://www.postgresql.org/docs/current/ddl-rowsecurity.html
 - table一般沒有安全政策限制, 因此只要有存取權限, 其內的所有記錄都是可存取的
 - 以下語法可設定**row-level**安全政策
   - 設定後要符合安全政策才能存取, 否則預設的**default-deny**政策就會生效, 表示看不到記錄也無法存取。
