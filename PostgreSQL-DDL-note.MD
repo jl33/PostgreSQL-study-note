@@ -450,7 +450,9 @@ CREATE POLICY
 ## Schema ## 
 >https://www.postgresql.org/docs/current/ddl-schemas.html
 - **schema**無法建立巢狀
-- 目前在PostgreSQL中如下寫法的`database`只能是目前所在資料庫, 這裡只是為了符合** SQL Standard**
+- 目前在PostgreSQL中如下寫法的`database`只能是目前所在資料庫, 這裡只是為了符合**SQL Standard**
+- 省略schema name時預設會等於是user name
+- `pg_`開頭的是系統用的schema, 建立user用的schema不能使用此類命名
 ```sql
 database.schema.table
 ```
@@ -462,3 +464,87 @@ DROP SCHEMA myschema;
 ```sql
 DROP SCHEMA myschema CASCADE;
 ```
+- 存取物件時若未指定schema name, 表示這類物件是建立於`public` schema中
+### search_path ###
+- `search_path`: 在存取物件時會依照此處的cshema順序, 找尋第一個找到的物件來做存取
+  - 若存在schema不同但物件名稱相同時, 會以找到的第一個schema的所屬物件來存取
+  - 預設path中一個schmea即為目前使用者的schema, 如下的`$user`
+```sql
+-- 這是預設, 第一個為current user schema
+mydb=> SHOW search_path;
+```
+```bash
+   search_path   
+-----------------
+ "$user", public
+(1 row)
+```
+```sql
+-- 調整search_path
+mydb=> SHOW search_path;
+```
+```bash
+   search_path    
+------------------
+ myschema, public
+(1 row)
+```
+```sql
+--建立table未指定schema, 但因為尚未建立myschema schema, 所以還是以public建立
+mydb=> Create table hello1 (c int,b varchar(5));
+CREATE TABLE
+mydb=> \dt
+```
+```bash
+            List of relations
+ Schema |    Name     | Type  |  Owner   
+--------+-------------+-------+----------
+ public | demo        | table | pguser
+ public | hello1      | table | pguser #<--新建物件
+...
+(10 rows)
+```
+```sql
+-- 建立schema
+mydb=> create schema myschema;
+CREATE SCHEMA
+-- 建立新schema的同名物件
+mydb=> Create table myschema.hello1 (c2 int,b2 varchar(5));
+CREATE TABLE
+-- 以同名物件在search_path中第一個物件呈現
+mydb=> \dt
+```
+```bash
+             List of relations
+  Schema  |    Name     | Type  |  Owner
+----------+-------------+-------+----------
+ public   | demo        | table | pguser
+ myschema | hello1      | table | pguser #<-- 同名hello1,但呈現myschema的這個
+...
+(10 rows)
+```
+### usage pattern ###
+>https://www.postgresql.org/docs/current/ddl-schemas.html#DDL-SCHEMAS-PATTERNS
+- schema及privilege的搭配使用, 預設有`public`的`Create`權限給所有人存取使用。可以打造出安全模式*secure schema usage pattern*
+  - 預設模式: 預設隱含有`public` schema物件的`Create`權限給所有人存取使用
+  - 限用個人`schema`:
+    - PostgreSQL 15起可以建立這種安全模式, 但對舊版的都是開放`public`, 則可以用以下指令去除
+    ```sql
+    EVOKE CREATE ON SCHEMA public FROM PUBLIC;
+    ```
+    - 然後建立每個人的獨立`schema`。每個人連入時就等於用自己的權限存取
+    ```sql
+    CREATE SCHEMA alice AUTHORIZATION alice;
+    ```
+    - 若有非信任user為`owner`身份或是被授與`ADMIN OPTION`, 則此安全模式等於不成立
+  - 在`search_path`移除`public`:
+    - 可在*postgresql.conf*修改設定, 或用以下設定移除預設的`public`權限
+    ```sql
+    -- 等於只剩user自己
+    ALTER ROLE ALL SET search_path = "$user";
+    ```
+    - 然後再對user個別授與建立對`public` schema物件的存取權限
+- 同一個`schmea`的`owner`權限不得為不同user
+
+## 繼承 ##
+> https://www.postgresql.org/docs/current/ddl-inherit.html#DDL-INHERIT
