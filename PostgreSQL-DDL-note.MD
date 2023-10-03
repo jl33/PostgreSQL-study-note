@@ -525,8 +525,8 @@ mydb=> \dt
 ```
 ### usage pattern ###
 >https://www.postgresql.org/docs/current/ddl-schemas.html#DDL-SCHEMAS-PATTERNS
-- schema及privilege的搭配使用, 預設有`public`的`Create`權限給所有人存取使用。可以打造出安全模式*secure schema usage pattern*
-  - 預設模式: 預設隱含有`public` schema物件的`Create`權限給所有人存取使用
+- schema及privilege的搭配使用。可以打造出安全模式*secure schema usage pattern*
+  - 預設模式: 預設模式, 隱含有`public` schema物件的`Create`權限給所有人存取使用
   - 限用個人`schema`:
     - PostgreSQL 15起可以建立這種安全模式, 但對舊版的都是開放`public`, 則可以用以下指令去除
     ```sql
@@ -548,3 +548,92 @@ mydb=> \dt
 
 ## 繼承 ##
 > https://www.postgresql.org/docs/current/ddl-inherit.html#DDL-INHERIT
+- 繼承的子table會自動包含父table的欄位
+```sql
+-- 共有3個欄位
+mydb=# CREATE TABLE cities (
+mydb(#     name            text,
+mydb(#     population      float,
+mydb(#     elevation       int     -- in feet
+mydb(# );
+CREATE TABLE
+-- 用INHERITS表示繼承關係, capitals繼承自cities
+-- 共有4個欄位(含父table定義的)
+mydb=# CREATE TABLE capitals (
+mydb(#     state           char(2)
+mydb(# ) INHERITS (cities);
+CREATE TABLE
+mydb=# Insert Into cities values ('Las Vegas',1000.2,2174),('Mariposa',2000.4,1953);
+INSERT 0 2
+mydb=# Insert Into capitals (state,name,population,elevation) Values ('CA','Madison',500.9,845);
+INSERT 0 1
+```
+- 查詢時會自動包含子table的記錄
+```sql
+mydb=# SELECT name, elevation
+mydb-#     FROM cities
+mydb-#     WHERE elevation > 500;
+-- table name加上*表示查詢包含子table的內容, 不加*為預設行為, 所以此句和上一句相等
+mydb=# SELECT name, elevation
+mydb-#     FROM cities*
+mydb-#     WHERE elevation > 500;
+```
+```
+   name    | elevation
+-----------+-----------
+ Las Vegas |      2174
+ Mariposa  |      1953
+ Madison   |       845
+(3 rows)
+```
+- 若只要查指定table可加上ONLY
+```sql
+mydb=# SELECT name, elevation
+mydb-#     FROM ONLY cities
+mydb-#     WHERE elevation > 500;
+```
+```
+   name    | elevation
+-----------+-----------
+ Las Vegas |      2174
+ Mariposa  |      1953
+(2 rows)
+```
+```sql
+-- 加上tableoid可得知記錄來源table OID
+mydb=# SELECT c.tableoid, c.name, c.elevation
+mydb-# FROM cities c
+mydb-# WHERE c.elevation > 500;
+```
+```
+ tableoid |   name    | elevation
+----------+-----------+-----------
+    32770 | Las Vegas |      2174
+    32770 | Mariposa  |      1953
+    32775 | Madison   |       845
+(3 rows)
+```
+```sql
+-- 加上pg_class.relname可得知記錄來源table name
+mydb=# SELECT p.relname, c.name, c.elevation
+mydb-# FROM cities c, pg_class p
+mydb-# WHERE c.elevation > 500 AND c.tableoid = p.oid;
+-- 另一種寫法::regclass
+mydb=# SELECT c.tableoid::regclass, c.name, c.elevation
+mydb-# FROM cities c
+mydb-# WHERE c.elevation > 500;
+```
+```
+ relname  |   name    | elevation
+----------+-----------+-----------
+ cities   | Las Vegas |      2174
+ cities   | Mariposa  |      1953
+ capitals | Madison   |       845
+(3 rows)
+ tableoid |   name    | elevation
+----------+-----------+-----------
+ cities   | Las Vegas |      2174
+ cities   | Mariposa  |      1953
+ capitals | Madison   |       845
+(3 rows)
+```
