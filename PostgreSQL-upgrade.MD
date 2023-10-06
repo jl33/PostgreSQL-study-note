@@ -22,12 +22,18 @@ Password:
 ```bash
 docker run --name postgres16 -v .\pgsVol:/demo -e POSTGRES_PASSWORD=P@ssw0rd! -d bitnami/postgresql:latest
 ```
-- 還原dump出來的檔案
+- 進到container的shell層, 還原dump出來的檔案
 ```bash
 $ psql -U postgres -f /demo/dball.sql
 Password for user postgres:
 ...
 ```
+- 移除獨立開啟的container
+```bash
+docker container rm {container id}
+```
+- 重新以*docker-compose.yml*啟動**PostgreSQL**的container
+
 ## docker-compose ##
 - 在PostgreSQL 15.4.0時需要以下Volume, 但升到PSQL 16時已不用再加此設定, yml中就不用加了
 ```yml
